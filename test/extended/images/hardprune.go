@@ -362,14 +362,14 @@ func (ba byAgeDesc) Less(i, j int) bool {
 
 // GetRegistryPod returns the youngest registry pod deployed.
 func GetRegistryPod(podsGetter kcoreclient.PodsGetter) (*kapiv1.Pod, error) {
-	podList, err := podsGetter.Pods(metav1.NamespaceDefault).List(metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(labels.Set{"deploymentconfig": "docker-registry"}).String(),
+	podList, err := podsGetter.Pods("openshift-image-registry").List(metav1.ListOptions{
+		LabelSelector: labels.SelectorFromSet(labels.Set{"docker-registry": "default"}).String(),
 	})
 	if err != nil {
 		return nil, err
 	}
 	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("failed to find any docker-registry pod")
+		return nil, fmt.Errorf("failed to find any image-registry pod")
 	}
 
 	sort.Sort(byAgeDesc(podList.Items))
@@ -385,7 +385,7 @@ func LogRegistryPod(oc *exutil.CLI) error {
 	}
 
 	ocLocal := *oc
-	path, err := ocLocal.Run("logs").Args("dc/docker-registry").OutputToFile("pod-" + pod.Name + ".log")
+	path, err := ocLocal.Run("logs").Args("deployments/image-registry").OutputToFile("pod-" + pod.Name + ".log")
 	if err == nil {
 		fmt.Fprintf(g.GinkgoWriter, "written registry pod log to %s\n", path)
 	}
@@ -426,9 +426,9 @@ func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool
 		return false, fmt.Errorf("failed to update registry's environment: %v", err)
 	}
 
-	if err := oc.Run("rollout").Args("status", "dc/docker-registry").Execute(); err != nil {
+	/*if err := oc.Run("rollout").Args("status", "deployments/image-registry").Execute(); err != nil {
 		return false, fmt.Errorf("unable to get registry rollout status: %v", err)
-	}
+	}*/
 
 	return true, nil
 }
@@ -436,15 +436,15 @@ func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool
 func RedeployRegistry(oc *exutil.CLI) (bool, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 
-	oc = oc.SetNamespace(metav1.NamespaceDefault).AsAdmin()
+	oc = oc.SetNamespace("openshift-image-registry").AsAdmin()
 
-	if err := oc.Run("rollout").Args("latest", "dc/docker-registry").Execute(); err != nil {
+	/*if err := oc.Run("rollout").Args("latest", "deployments/image-registry").Execute(); err != nil {
 		return false, fmt.Errorf("failed to rollout registry: %v", err)
 	}
 
-	if err := oc.Run("rollout").Args("status", "dc/docker-registry").Execute(); err != nil {
+	if err := oc.Run("rollout").Args("status", "deployments/image-registry").Execute(); err != nil {
 		return false, fmt.Errorf("unable to get registry rollout status: %v", err)
-	}
+	}*/
 
 	return true, nil
 }
@@ -464,8 +464,8 @@ func makeReadonlyEnvValue(on bool) string {
 // GetRegistryStorageSize returns a number of bytes occupied by registry's data on its filesystem.
 func GetRegistryStorageSize(oc *exutil.CLI) (int64, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-	out, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("rsh").Args(
-		"dc/docker-registry", "du", "--bytes", "--summarize", "/registry/docker/registry").Output()
+	out, err := oc.SetNamespace("openshift-image-registry").AsAdmin().Run("rsh").Args(
+		"deployment/image-registry", "du", "--bytes", "--summarize", "/registry").Output()
 	if err != nil {
 		return 0, err
 	}
