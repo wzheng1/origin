@@ -497,8 +497,8 @@ func importImageAndMirrorItsSmallestBlob(oc *exutil.CLI, imageReference, destIST
 
 func dumpRegistryLogs(oc *exutil.CLI, since time.Time) {
 	oadm := oc.AsAdmin()
-	oadm.SetNamespace("default")
-	out, err := oadm.Run("logs").Args("dc/docker-registry", "--since-time="+since.Format(time.RFC3339)).Output()
+	oadm.SetNamespace("openshift-image-registry")
+	out, err := oadm.Run("logs").Args("deployment/image-registry", "--since-time="+since.Format(time.RFC3339)).Output()
 	if err != nil {
 		e2e.Logf("Error during retrieval of registry logs: %v", err)
 	} else {

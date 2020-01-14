@@ -396,8 +396,8 @@ func LogRegistryPod(oc *exutil.CLI) error {
 // function blocks until the registry is ready.
 func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-	oc = oc.SetNamespace(metav1.NamespaceDefault).AsAdmin()
-	env, err := oc.Run("set", "env").Args("dc/docker-registry", "--list").Output()
+	oc = oc.SetNamespace("openshift-image-registry").AsAdmin()
+	env, err := oc.Run("set", "env").Args("deployments/image-registry", "--list").Output()
 	if err != nil {
 		return false, err
 	}
@@ -422,7 +422,7 @@ func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool
 		return false, nil
 	}
 
-	if err := oc.Run("set", "env").Args(append([]string{"dc/docker-registry"}, envOverrides...)...).Execute(); err != nil {
+	if err := oc.Run("set", "env").Args(append([]string{"deployments/image-registry"}, envOverrides...)...).Execute(); err != nil {
 		return false, fmt.Errorf("failed to update registry's environment: %v", err)
 	}
 
@@ -485,8 +485,8 @@ func GetRegistryStorageSize(oc *exutil.CLI) (int64, error) {
 // DoesRegistryAcceptSchema2 returns true if the integrated registry is configured to accept manifest V2
 // schema 2.
 func DoesRegistryAcceptSchema2(oc *exutil.CLI) (bool, error) {
-	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-	env, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("set", "env").Args("dc/docker-registry", "--list").Output()
+	//defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+	env, err := oc.SetNamespace("openshift-image-registry").AsAdmin().Run("set", "env").Args("deployment/image-registry", "--list").Output()
 	if err != nil {
 		return defaultAcceptSchema2, err
 	}
