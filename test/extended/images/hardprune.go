@@ -485,7 +485,7 @@ func GetRegistryStorageSize(oc *exutil.CLI) (int64, error) {
 // DoesRegistryAcceptSchema2 returns true if the integrated registry is configured to accept manifest V2
 // schema 2.
 func DoesRegistryAcceptSchema2(oc *exutil.CLI) (bool, error) {
-	//defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 	env, err := oc.SetNamespace("openshift-image-registry").AsAdmin().Run("set", "env").Args("deployment/image-registry", "--list").Output()
 	if err != nil {
 		return defaultAcceptSchema2, err
