@@ -11,7 +11,7 @@ go_test(
     srcs = [
         "attach_detach_test.go",
         "main_test.go",
-        "persistent_volumes_test.go",
+        "",
     ],
     tags = ["integration"],
     deps = [
