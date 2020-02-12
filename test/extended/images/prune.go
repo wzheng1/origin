@@ -52,6 +52,34 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 		o.Expect(err).NotTo(o.HaveOccurred())
 	})
 
+	g.Describe("wzheng", func() {
+		g.JustBeforeEach(func() {
+			/*	var err error
+				isRedeployed := false
+				if *originalAcceptSchema2 {
+					g.By("ensure the registry does not accept schema 2")
+					isRedeployed, err = EnsureRegistryAcceptsSchema2(oc, false)
+					o.Expect(err).NotTo(o.HaveOccurred())
+				}
+				if !isRedeployed {
+					_, err = RedeployRegistry(oc)
+					o.Expect(err).NotTo(o.HaveOccurred())
+				}*/
+		})
+
+		g.AfterEach(func() {
+			/*	if g.CurrentGinkgoTestDescription().Failed {
+					dumpRegistryLogs(oc, startTime)
+				}
+				if *originalAcceptSchema2 {
+					_, err := EnsureRegistryAcceptsSchema2(oc, true)
+					o.Expect(err).NotTo(o.HaveOccurred())
+				}*/
+		})
+
+		g.It("test", func() { ConfigureImageRegistryStorage() })
+	})
+
 	g.Describe("of schema 1", func() {
 		g.JustBeforeEach(func() {
 			var err error
