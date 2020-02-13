@@ -2,10 +2,10 @@ package images
 
 import (
 	o "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	restclient "k8s.io/client-go/rest"
 
 	exutil "github.com/openshift/origin/test/extended/util"
-	//	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 
 	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
@@ -101,7 +101,7 @@ func MustNewClientset(kubeconfig *restclient.Config) *Clientset {
 }
 
 //Configure Image Registry Operator
-/*func ConfigureImageRegistryStorage(oc *exutil.CLI) {
+func ConfigureImageRegistryStorage(oc *exutil.CLI) {
 	client := MustNewClientset(nil)
 	config, err := client.Configs().Get(
 		ImageRegistryResourceName,
@@ -121,15 +121,21 @@ func MustNewClientset(kubeconfig *restclient.Config) *Clientset {
 			hasstorage = "swift"
 		case config.Status.Storage.GCS != nil:
 			hasstorage = "GCS"
+		case config.Status.Storage.Azure != nil:
+			hasstorage = "azure"
+		case config.Status.Storage.PVC != nil:
+			hasstorage = "pvc"
+		default:
+			e2e.Logf("Image Registry is using unknown storage type")
 		}
-		err = oc.Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"storage":{`+hasstorage+`:null,"emptyDir":{}}}}`, "--type=merge").Execute()
+		err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"storage":{"`+hasstorage+`":null,"emptyDir":{}}}}`, "--type=merge").Execute()
 		if err == nil {
 			e2e.Logf("Image Registry is changed to use EmptyDir")
 		}
 	}
 	return
-}*/
-
-func ConfigureImageRegistryStorage() {
-	return
 }
+
+/*func ConfigureImageRegistryStorage() {
+	return
+}*/
