@@ -39,6 +39,7 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 	var startTime time.Time
 	g.JustBeforeEach(func() {
 		startTime = time.Now()
+		ConfigureImageRegistryStorage(oc)
 	})
 	g.JustBeforeEach(func() {
 		g.By(fmt.Sprintf("give a user %s a right to prune images with %s role", oc.Username(), "system:image-pruner"))

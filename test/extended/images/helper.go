@@ -571,8 +571,8 @@ func pathExistsInRegistry(oc *exutil.CLI, pthComponents ...string) (bool, error)
 	pth := path.Join(append([]string{"/registry/docker/registry/v2"}, pthComponents...)...)
 	cmd := fmt.Sprintf("test -e '%s' && echo exists || echo missing", pth)
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-	out, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("rsh").Args(
-		"dc/docker-registry", "/bin/sh", "-c", cmd).Output()
+	out, err := oc.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin().Run("rsh").Args(
+		"deployments/image-registr", "/bin/sh", "-c", cmd).Output()
 	if err != nil {
 		return false, fmt.Errorf("failed to check for blob existence: %v", err)
 	}
@@ -622,7 +622,7 @@ func RunHardPrune(oc *exutil.CLI, dryRun bool) (*RegistryStorageFiles, error) {
 	}
 
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-	output, err := oc.AsAdmin().SetNamespace(metav1.NamespaceDefault).Run("set", "env").Args("--list", "dc/docker-registry").Output()
+	output, err := oc.AsAdmin().SetNamespace(RegistryOperatorDeploymentNamespace).Run("set", "env").Args("--list", "deployments/image-registry").Output()
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +639,7 @@ func RunHardPrune(oc *exutil.CLI, dryRun bool) (*RegistryStorageFiles, error) {
 		if dryRun {
 			pruneType = "check"
 		}
-		out, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().
+		out, err := oc.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin().
 			Run("exec").Args("--stdin", pod.Name, "--", "/bin/sh", "-s").
 			InputString(fmt.Sprintf(registryGCLauncherScript, dockerRegistryBinary, pruneType)).Output()
 		if exitError, ok := err.(*exutil.ExitError); ok && strings.Contains(exitError.StdErr, "unable to upgrade connection") {
@@ -795,8 +795,8 @@ func (c *CleanUpContainer) Run() {
 
 	// Remove registry database between tests to avoid the influence of one test on another.
 	// TODO: replace this with removals of individual blobs used in the test case.
-	out, err := c.OC.SetNamespace(metav1.NamespaceDefault).AsAdmin().
-		Run("rsh").Args("dc/docker-registry", "find", "/registry", "-mindepth", "1", "-delete").Output()
+	out, err := c.OC.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin().
+		Run("rsh").Args("deployments/image-registry", "find", "/registry", "-mindepth", "1", "-delete").Output()
 	if err != nil {
 		fmt.Fprintf(g.GinkgoWriter, "clean up registry failed: %v\n", err)
 		fmt.Fprintf(g.GinkgoWriter, "%s\n", out)

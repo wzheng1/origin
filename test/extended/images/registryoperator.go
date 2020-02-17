@@ -1,8 +1,6 @@
 package images
 
 import (
-	"testing"
-
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,19 +38,17 @@ func EnsureRegistryOperatorStatusIsAvailable(oc *exutil.CLI) {
 }
 
 func RegistryConfigClient(oc *exutil.CLI) clientimageregistryv1.ImageregistryV1Interface {
-	return clientimageregistryv1.NewForConfigOrDie(oc.UserConfig())
+	return clientimageregistryv1.NewForConfigOrDie(oc.AdminConfig())
 }
 
 //Configure Image Registry Operator
 func ConfigureImageRegistryStorage(oc *exutil.CLI) {
-	var t *testing.T
 	config, err := RegistryConfigClient(oc).Configs().Get(
 		ImageRegistryResourceName,
 		metav1.GetOptions{},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	e2e.Logf("config is :\n%s", config)
+	o.Expect(err).NotTo(o.HaveOccurred())
 	var hasstorage string
 	if config.Status.Storage.EmptyDir != nil {
 		e2e.Logf("Image Registry is already using EmptyDir")

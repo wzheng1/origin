@@ -348,8 +348,8 @@ func GetDockerRegistryURL(oc *exutil.CLI) (string, error) {
 // RegistriConfiguration holds desired configuration options for the integrated registry. *nil* stands for
 // "no change".
 type RegistryConfiguration struct {
-	ReadOnly      *bool
-	AcceptSchema2 *bool
+	ReadOnly *bool
+	// AcceptSchema2 *bool
 }
 
 type byAgeDesc []kapiv1.Pod
@@ -472,7 +472,7 @@ func makeReadonlyEnvValue(on bool) string {
 func GetRegistryStorageSize(oc *exutil.CLI) (int64, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 	ConfigureImageRegistryStorage(oc)
-	out, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("rsh").Args(
+	out, err := oc.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin().Run("rsh").Args(
 		"deployments/image-registry", "du", "--bytes", "--summarize", "/registry/docker/registry").Output()
 	if err != nil {
 		return 0, err
@@ -492,16 +492,16 @@ func GetRegistryStorageSize(oc *exutil.CLI) (int64, error) {
 
 // DoesRegistryAcceptSchema2 returns true if the integrated registry is configured to accept manifest V2
 // schema 2.
-func DoesRegistryAcceptSchema2(oc *exutil.CLI) (bool, error) {
-	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-	env, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("set", "env").Args("dc/docker-registry", "--list").Output()
-	if err != nil {
-		return defaultAcceptSchema2, err
-	}
+// func DoesRegistryAcceptSchema2(oc *exutil.CLI) (bool, error) {
+// 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+// 	env, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("set", "env").Args("dc/docker-registry", "--list").Output()
+// 	if err != nil {
+// 		return defaultAcceptSchema2, err
+// 	}
 
-	if strings.Contains(env, fmt.Sprintf("%s=", AcceptSchema2EnvVar)) {
-		return strings.Contains(env, fmt.Sprintf("%s=true", AcceptSchema2EnvVar)), nil
-	}
+// 	if strings.Contains(env, fmt.Sprintf("%s=", AcceptSchema2EnvVar)) {
+// 		return strings.Contains(env, fmt.Sprintf("%s=true", AcceptSchema2EnvVar)), nil
+// 	}
 
-	return defaultAcceptSchema2, nil
-}
+// 	return defaultAcceptSchema2, nil
+// }
