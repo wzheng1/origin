@@ -28,27 +28,27 @@ import (
 var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/registry/serial][local] Image hard prune", func() {
 	defer g.GinkgoRecover()
 	var oc = exutil.NewCLI("prune-images", exutil.KubeConfigPath())
-	var originalAcceptSchema2 *bool
+	//var originalAcceptSchema2 *bool
 
 	g.JustBeforeEach(func() {
-		if originalAcceptSchema2 == nil {
-			accepts, err := DoesRegistryAcceptSchema2(oc)
-			o.Expect(err).NotTo(o.HaveOccurred())
-			originalAcceptSchema2 = &accepts
-		}
+		// if originalAcceptSchema2 == nil {
+		// 	accepts, err := DoesRegistryAcceptSchema2(oc)
+		// 	o.Expect(err).NotTo(o.HaveOccurred())
+		// 	originalAcceptSchema2 = &accepts
+		// }
 
-		readOnly := false
-		acceptSchema2 := true
-		_, err := ConfigureRegistry(oc,
-			RegistryConfiguration{
-				ReadOnly:      &readOnly,
-				AcceptSchema2: &acceptSchema2,
-			})
-		o.Expect(err).NotTo(o.HaveOccurred())
+		// readOnly := false
+		// acceptSchema2 := true
+		// _, err := ConfigureRegistry(oc,
+		// 	RegistryConfiguration{
+		// 		ReadOnly:      &readOnly,
+		// 		AcceptSchema2: &acceptSchema2,
+		// 	})
+		//o.Expect(err).NotTo(o.HaveOccurred())
 
 		defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 		g.By(fmt.Sprintf("give a user %s a right to prune images with %s role", oc.Username(), "system:image-pruner"))
-		err = oc.AsAdmin().WithoutNamespace().Run("adm").Args("policy", "add-cluster-role-to-user", "system:image-pruner", oc.Username()).Execute()
+		err := oc.AsAdmin().WithoutNamespace().Run("adm").Args("policy", "add-cluster-role-to-user", "system:image-pruner", oc.Username()).Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
 		err = oc.AsAdmin().SetNamespace(metav1.NamespaceDefault).Run("adm").
 			Args("policy", "add-cluster-role-to-user", "system:image-pruner",
@@ -61,13 +61,13 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 	})
 
 	g.AfterEach(func() {
-		readOnly := false
-		_, err := ConfigureRegistry(oc,
-			RegistryConfiguration{
-				ReadOnly:      &readOnly,
-				AcceptSchema2: originalAcceptSchema2,
-			})
-		o.Expect(err).NotTo(o.HaveOccurred())
+		//readOnly := false
+		// _, err := ConfigureRegistry(oc,
+		// 	RegistryConfiguration{
+		// 		ReadOnly:      &readOnly,
+		// 		AcceptSchema2: originalAcceptSchema2,
+		// 	})
+		//o.Expect(err).NotTo(o.HaveOccurred())
 	})
 
 	mergeOrSetExpectedDeletions := func(expected, new *RegistryStorageFiles, merge bool) *RegistryStorageFiles {
@@ -363,13 +363,13 @@ func (ba byAgeDesc) Less(i, j int) bool {
 // GetRegistryPod returns the youngest registry pod deployed.
 func GetRegistryPod(podsGetter kcoreclient.PodsGetter) (*kapiv1.Pod, error) {
 	podList, err := podsGetter.Pods(metav1.NamespaceDefault).List(metav1.ListOptions{
-		LabelSelector: labels.SelectorFromSet(labels.Set{"deploymentconfig": "docker-registry"}).String(),
+		LabelSelector: labels.SelectorFromSet(labels.Set{"docker-registry": "default"}).String(),
 	})
 	if err != nil {
 		return nil, err
 	}
 	if len(podList.Items) == 0 {
-		return nil, fmt.Errorf("failed to find any docker-registry pod")
+		return nil, fmt.Errorf("failed to find any image-registry pod")
 	}
 
 	sort.Sort(byAgeDesc(podList.Items))
@@ -385,7 +385,7 @@ func LogRegistryPod(oc *exutil.CLI) error {
 	}
 
 	ocLocal := *oc
-	path, err := ocLocal.Run("logs").Args("dc/docker-registry").OutputToFile("pod-" + pod.Name + ".log")
+	path, err := ocLocal.Run("logs").Args("deployments/image-registry").OutputToFile("pod-" + pod.Name + ".log")
 	if err == nil {
 		fmt.Fprintf(g.GinkgoWriter, "written registry pod log to %s\n", path)
 	}
@@ -394,10 +394,10 @@ func LogRegistryPod(oc *exutil.CLI) error {
 
 // ConfigureRegistry re-deploys the registry pod if its configuration doesn't match the desiredState. The
 // function blocks until the registry is ready.
-func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool, error) {
+/*func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 	oc = oc.SetNamespace(metav1.NamespaceDefault).AsAdmin()
-	env, err := oc.Run("set", "env").Args("dc/docker-registry", "--list").Output()
+	env, err := oc.Run("set", "env").Args("deployments/image-registry", "--list").Output()
 	if err != nil {
 		return false, err
 	}
@@ -431,21 +431,28 @@ func ConfigureRegistry(oc *exutil.CLI, desiredState RegistryConfiguration) (bool
 	}
 
 	return true, nil
-}
+}*/
 
 func RedeployRegistry(oc *exutil.CLI) (bool, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 
-	oc = oc.SetNamespace(metav1.NamespaceDefault).AsAdmin()
+	oc = oc.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin()
 
-	if err := oc.Run("rollout").Args("latest", "dc/docker-registry").Execute(); err != nil {
+	/*if err := oc.Run("rollout").Args("latest", "dc/docker-registry").Execute(); err != nil {
 		return false, fmt.Errorf("failed to rollout registry: %v", err)
 	}
 
 	if err := oc.Run("rollout").Args("status", "dc/docker-registry").Execute(); err != nil {
 		return false, fmt.Errorf("unable to get registry rollout status: %v", err)
+	}*/
+	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"managementState":"Removed"}}`, "--type=merge").Execute()
+	if err != nil {
+		return false, fmt.Errorf("failed to remove registry: %v", err)
 	}
-
+	err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"managementState":"Managed"}}`, "--type=merge").Execute()
+	if err != nil {
+		return false, fmt.Errorf("failed to start registry: %v", err)
+	}
 	return true, nil
 }
 
@@ -453,19 +460,20 @@ func RedeployRegistry(oc *exutil.CLI) (bool, error) {
 // not. If the result doesn't match given accept argument, registry's deployment config will be updated
 // accordingly and the function will block until the registry have been re-deployed and ready for new
 // requests.
-func EnsureRegistryAcceptsSchema2(oc *exutil.CLI, accept bool) (bool, error) {
+/*func EnsureRegistryAcceptsSchema2(oc *exutil.CLI, accept bool) (bool, error) {
 	return ConfigureRegistry(oc, RegistryConfiguration{AcceptSchema2: &accept})
 }
 
 func makeReadonlyEnvValue(on bool) string {
 	return fmt.Sprintf(`{"enabled":%t}`, on)
-}
+}*/
 
 // GetRegistryStorageSize returns a number of bytes occupied by registry's data on its filesystem.
 func GetRegistryStorageSize(oc *exutil.CLI) (int64, error) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+	ConfigureImageRegistryStorage(oc)
 	out, err := oc.SetNamespace(metav1.NamespaceDefault).AsAdmin().Run("rsh").Args(
-		"dc/docker-registry", "du", "--bytes", "--summarize", "/registry/docker/registry").Output()
+		"deployments/image-registry", "du", "--bytes", "--summarize", "/registry/docker/registry").Output()
 	if err != nil {
 		return 0, err
 	}

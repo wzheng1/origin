@@ -34,103 +34,34 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 	defer g.GinkgoRecover()
 	var oc = exutil.NewCLI("prune-images", exutil.KubeConfigPath())
 
-	var originalAcceptSchema2 *bool
+	//var originalAcceptSchema2 *bool
 
 	var startTime time.Time
 	g.JustBeforeEach(func() {
 		startTime = time.Now()
 	})
 	g.JustBeforeEach(func() {
-		/*	if originalAcceptSchema2 == nil {
-				accepts, err := DoesRegistryAcceptSchema2(oc)
-				o.Expect(err).NotTo(o.HaveOccurred())
-				originalAcceptSchema2 = &accepts
-			}
-
-			g.By(fmt.Sprintf("give a user %s a right to prune images with %s role", oc.Username(), "system:image-pruner"))
-			err := oc.AsAdmin().WithoutNamespace().Run("adm").Args("policy", "add-cluster-role-to-user", "system:image-pruner", oc.Username()).Execute()
-			o.Expect(err).NotTo(o.HaveOccurred())*/
+		g.By(fmt.Sprintf("give a user %s a right to prune images with %s role", oc.Username(), "system:image-pruner"))
+		err := oc.AsAdmin().WithoutNamespace().Run("adm").Args("policy", "add-cluster-role-to-user", "system:image-pruner", oc.Username()).Execute()
+		o.Expect(err).NotTo(o.HaveOccurred())
 	})
-
-	g.Describe("of schema 1", func() {
-		g.JustBeforeEach(func() {
-
-		})
-
-		g.AfterEach(func() {
-
-		})
-
-		//g.It("should prune old image", func() { testPruneImages(oc, 1) })
-		g.It("should prune old image", func() { ConfigureImageRegistryStorage(oc) })
-	})
-
-	/*	g.Describe("of schema 1", func() {
-		g.JustBeforeEach(func() {
-			var err error
-			isRedeployed := false
-			if *originalAcceptSchema2 {
-				g.By("ensure the registry does not accept schema 2")
-				isRedeployed, err = EnsureRegistryAcceptsSchema2(oc, false)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
-			if !isRedeployed {
-				_, err = RedeployRegistry(oc)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
-		})
-
-		g.AfterEach(func() {
-			if g.CurrentGinkgoTestDescription().Failed {
-				dumpRegistryLogs(oc, startTime)
-			}
-			if *originalAcceptSchema2 {
-				_, err := EnsureRegistryAcceptsSchema2(oc, true)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
-		})
-
-		//g.It("should prune old image", func() { testPruneImages(oc, 1) })
-		g.It("should prune old image", func() { ConfigureImageRegistryStorage() })
-	})*/
 
 	g.Describe("of schema 2", func() {
 		g.JustBeforeEach(func() {
-			var err error
-			isRedeployed := false
-			if !*originalAcceptSchema2 {
-				g.By("ensure the registry accepts schema 2")
-				isRedeployed, err = EnsureRegistryAcceptsSchema2(oc, true)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
-			if !isRedeployed {
-				_, err = RedeployRegistry(oc)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
+
 		})
 
 		g.AfterEach(func() {
-			if g.CurrentGinkgoTestDescription().Failed {
-				dumpRegistryLogs(oc, startTime)
-			}
-			if !*originalAcceptSchema2 {
-				_, err := EnsureRegistryAcceptsSchema2(oc, false)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
+
 		})
 
 		g.It("should prune old image with config", func() { testPruneImages(oc, 2) })
 	})
 
-	g.Describe("with --prune-registry==false", func() {
+	g.Describe("of schema 1", func() {
 		g.JustBeforeEach(func() {
 			var err error
 			isRedeployed := false
-			if !*originalAcceptSchema2 {
-				g.By("ensure the registry accepts schema 2")
-				isRedeployed, err = EnsureRegistryAcceptsSchema2(oc, true)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
 			if !isRedeployed {
 				_, err = RedeployRegistry(oc)
 				o.Expect(err).NotTo(o.HaveOccurred())
@@ -141,9 +72,43 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 			if g.CurrentGinkgoTestDescription().Failed {
 				dumpRegistryLogs(oc, startTime)
 			}
-			if !*originalAcceptSchema2 {
-				_, err := EnsureRegistryAcceptsSchema2(oc, false)
+		})
+
+		g.It("should prune old image", func() { testPruneImages(oc, 1) })
+	})
+
+	/*g.Describe("of schema 2", func() {
+		g.JustBeforeEach(func() {
+			var err error
+			isRedeployed := false
+			if !isRedeployed {
+				_, err = RedeployRegistry(oc)
 				o.Expect(err).NotTo(o.HaveOccurred())
+			}
+		})
+
+		g.AfterEach(func() {
+			if g.CurrentGinkgoTestDescription().Failed {
+				dumpRegistryLogs(oc, startTime)
+			}
+		})
+
+		g.It("should prune old image with config", func() { testPruneImages(oc, 2) })
+	})*/
+
+	g.Describe("with --prune-registry==false", func() {
+		g.JustBeforeEach(func() {
+			var err error
+			isRedeployed := false
+			if !isRedeployed {
+				_, err = RedeployRegistry(oc)
+				o.Expect(err).NotTo(o.HaveOccurred())
+			}
+		})
+
+		g.AfterEach(func() {
+			if g.CurrentGinkgoTestDescription().Failed {
+				dumpRegistryLogs(oc, startTime)
 			}
 		})
 
@@ -154,11 +119,6 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 		g.JustBeforeEach(func() {
 			var err error
 			isRedeployed := false
-			if !*originalAcceptSchema2 {
-				g.By("ensure the registry accepts schema 2")
-				isRedeployed, err = EnsureRegistryAcceptsSchema2(oc, true)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
 			if !isRedeployed {
 				_, err = RedeployRegistry(oc)
 				o.Expect(err).NotTo(o.HaveOccurred())
@@ -168,10 +128,6 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 		g.AfterEach(func() {
 			if g.CurrentGinkgoTestDescription().Failed {
 				dumpRegistryLogs(oc, startTime)
-			}
-			if !*originalAcceptSchema2 {
-				_, err := EnsureRegistryAcceptsSchema2(oc, false)
-				o.Expect(err).NotTo(o.HaveOccurred())
 			}
 		})
 
@@ -182,11 +138,6 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 		g.JustBeforeEach(func() {
 			var err error
 			isRedeployed := false
-			if !*originalAcceptSchema2 {
-				g.By("ensure the registry accepts schema 2")
-				isRedeployed, err = EnsureRegistryAcceptsSchema2(oc, true)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
 			if !isRedeployed {
 				_, err = RedeployRegistry(oc)
 				o.Expect(err).NotTo(o.HaveOccurred())
@@ -197,10 +148,6 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 			if g.CurrentGinkgoTestDescription().Failed {
 				dumpRegistryLogs(oc, startTime)
 			}
-			if !*originalAcceptSchema2 {
-				_, err := EnsureRegistryAcceptsSchema2(oc, false)
-				o.Expect(err).NotTo(o.HaveOccurred())
-			}
 		})
 
 		g.It("should prune only internally managed images", func() { testPruneAllImages(oc, false, 2) })
@@ -208,7 +155,7 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 })
 
 func getImageName(oc *exutil.CLI, namespace, name, tag string) (string, error) {
-	istag, err := oc.AdminImageClient().ImageV1().ImageStreamTags(namespace).Get(fmt.Sprintf("%s:%s", name, tag), metav1.GetOptions{})
+	istag, err := oc.AdminImageClient().ImageV1().ImageStreamTags(RegistryOperatorDeploymentNamespace).Get(fmt.Sprintf("%s:%s", name, tag), metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -511,8 +458,8 @@ func importImageAndMirrorItsSmallestBlob(oc *exutil.CLI, imageReference, destIST
 
 func dumpRegistryLogs(oc *exutil.CLI, since time.Time) {
 	oadm := oc.AsAdmin()
-	oadm.SetNamespace("default")
-	out, err := oadm.Run("logs").Args("dc/docker-registry", "--since-time="+since.Format(time.RFC3339)).Output()
+	oadm.SetNamespace(RegistryOperatorDeploymentNamespace)
+	out, err := oadm.Run("logs").Args("deployments/image-registry", "--since-time="+since.Format(time.RFC3339)).Output()
 	if err != nil {
 		e2e.Logf("Error during retrieval of registry logs: %v", err)
 	} else {

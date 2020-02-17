@@ -1,19 +1,16 @@
 package images
 
 import (
+	"testing"
+
+	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	restclient "k8s.io/client-go/rest"
 
 	exutil "github.com/openshift/origin/test/extended/util"
 	e2e "k8s.io/kubernetes/test/e2e/framework"
 
-	clientconfigv1 "github.com/openshift/client-go/config/clientset/versioned/typed/config/v1"
 	clientimageregistryv1 "github.com/openshift/client-go/imageregistry/clientset/versioned/typed/imageregistry/v1"
-	clientroutev1 "github.com/openshift/client-go/route/clientset/versioned/typed/route/v1"
-	clientappsv1 "k8s.io/client-go/kubernetes/typed/apps/v1"
-	clientcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	clientstoragev1 "k8s.io/client-go/kubernetes/typed/storage/v1"
 )
 
 const (
@@ -24,91 +21,37 @@ const (
 	ImageRegistryOperatorResourceName   = "image-registry"
 )
 
-// Clientset is a set of Kubernetes clients.
-type Clientset struct {
-	clientcorev1.CoreV1Interface
-	clientappsv1.AppsV1Interface
-	clientconfigv1.ConfigV1Interface
-	clientimageregistryv1.ImageregistryV1Interface
-	clientroutev1.RouteV1Interface
-	clientstoragev1.StorageV1Interface
-}
-
 //Make sure Registry Operator is Available
 func EnsureRegistryOperatorStatusIsAvailable(oc *exutil.CLI) {
-	msg, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", ImageRegistryOperatorResourceName).Output()
-	if err != nil {
-		e2e.Failf("Unable to get co %s status, error:%v", msg, err)
-	}
+	err := oc.AsAdmin().WithoutNamespace().Run("describe").Args("co", ImageRegistryOperatorResourceName).Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
+	g.By("No error for Image Registry Operator")
+
 	availablestatus, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", ImageRegistryOperatorResourceName, "-o=jsonpath={range .status.conditions[0]}{.status}").Output()
-	progressingstatus, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", ImageRegistryOperatorResourceName, "-o=jsonpath={range .status.conditions[1]}{.status}").Output()
-	degradestatus, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", ImageRegistryOperatorResourceName, "-o=jsonpath={range .status.conditions[2]}{.status}").Output()
-	if availablestatus == "True" && progressingstatus == "False" && degradestatus == "False" {
-		e2e.Logf("Image registry operator is available")
-	}
 	o.Expect(err).NotTo(o.HaveOccurred())
+	progressingstatus, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", ImageRegistryOperatorResourceName, "-o=jsonpath={range .status.conditions[1]}{.status}").Output()
+	o.Expect(err).NotTo(o.HaveOccurred())
+	degradestatus, err := oc.AsAdmin().WithoutNamespace().Run("get").Args("co", ImageRegistryOperatorResourceName, "-o=jsonpath={range .status.conditions[2]}{.status}").Output()
+	o.Expect(err).NotTo(o.HaveOccurred())
+	if availablestatus == "True" && progressingstatus == "False" && degradestatus == "False" {
+		g.By("Image registry operator is available")
+	}
+
 }
 
-// NewClientset creates a set of Kubernetes clients. The default kubeconfig is
-// used if not provided.
-func NewClientset() (clientset *Clientset, err error) {
-	/*if kubeconfig == nil {
-		kubeconfig, err = client.GetConfig()
-		if err != nil {
-			return nil, fmt.Errorf("unable to get kubeconfig: %s", err)
-		}
-	}*/
-	kubeconfig, err := e2e.LoadConfig()
-	o.Expect(err).ToNot(o.HaveOccurred())
-
-	clientset = &Clientset{}
-	clientset.CoreV1Interface, err = clientcorev1.NewForConfig(kubeconfig)
-	if err != nil {
-		return
-	}
-	clientset.AppsV1Interface, err = clientappsv1.NewForConfig(kubeconfig)
-	if err != nil {
-		return
-	}
-	clientset.ConfigV1Interface, err = clientconfigv1.NewForConfig(kubeconfig)
-	if err != nil {
-		return
-	}
-	clientset.ImageregistryV1Interface, err = clientimageregistryv1.NewForConfig(kubeconfig)
-	if err != nil {
-		return
-	}
-	clientset.RouteV1Interface, err = clientroutev1.NewForConfig(kubeconfig)
-	if err != nil {
-		return
-	}
-	clientset.StorageV1Interface, err = clientstoragev1.NewForConfig(kubeconfig)
-	if err != nil {
-		return
-	}
-	return
-}
-
-// MustNewClientset is like NewClienset but aborts the test if clienset cannot
-// be constructed.
-func MustNewClientset(kubeconfig *restclient.Config) *Clientset {
-	clientset, err := NewClientset()
-	if err != nil {
-		e2e.Logf("Cannot get kubeconfig")
-	}
-	return clientset
+func RegistryConfigClient(oc *exutil.CLI) clientimageregistryv1.ImageregistryV1Interface {
+	return clientimageregistryv1.NewForConfigOrDie(oc.UserConfig())
 }
 
 //Configure Image Registry Operator
 func ConfigureImageRegistryStorage(oc *exutil.CLI) {
-	client := MustNewClientset(nil)
-	config, err := client.Configs().Get(
+	var t *testing.T
+	config, err := RegistryConfigClient(oc).Configs().Get(
 		ImageRegistryResourceName,
 		metav1.GetOptions{},
 	)
 	if err != nil {
-		e2e.Logf("unable to get image registry config")
+		t.Fatal(err)
 	}
 	var hasstorage string
 	if config.Status.Storage.EmptyDir != nil {
@@ -129,11 +72,20 @@ func ConfigureImageRegistryStorage(oc *exutil.CLI) {
 			e2e.Logf("Image Registry is using unknown storage type")
 		}
 		err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"storage":{"`+hasstorage+`":null,"emptyDir":{}}}}`, "--type=merge").Execute()
-		if err == nil {
-			e2e.Logf("Image Registry is changed to use EmptyDir")
+		o.Expect(err).NotTo(o.HaveOccurred())
+		if err != nil {
+			e2e.Logf("Image Registry is not using EmptyDir")
 		}
 	}
 	return
+}
+
+func EnableRegistryPublicRoute(oc *exutil.CLI) {
+	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"defaultRoute":true}}`, "--type=merge").Execute()
+	o.Expect(err).NotTo(o.HaveOccurred())
+	if err != nil {
+		e2e.Logf("Default route for Image Registry is failed to be enabled")
+	}
 }
 
 /*func ConfigureImageRegistryStorage() {
