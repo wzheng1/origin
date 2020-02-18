@@ -1,6 +1,8 @@
 package images
 
 import (
+	"fmt"
+
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,6 +23,8 @@ const (
 
 //Make sure Registry Operator is Available
 func EnsureRegistryOperatorStatusIsAvailable(oc *exutil.CLI) {
+	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+
 	err := oc.AsAdmin().WithoutNamespace().Run("describe").Args("co", ImageRegistryOperatorResourceName).Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	g.By("No error for Image Registry Operator")
@@ -41,8 +45,10 @@ func RegistryConfigClient(oc *exutil.CLI) clientimageregistryv1.ImageregistryV1I
 	return clientimageregistryv1.NewForConfigOrDie(oc.AdminConfig())
 }
 
-//Configure Image Registry Operator
+//Configure Image Registry Storage
 func ConfigureImageRegistryStorage(oc *exutil.CLI) {
+	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+
 	config, err := RegistryConfigClient(oc).Configs().Get(
 		ImageRegistryResourceName,
 		metav1.GetOptions{},
@@ -76,14 +82,40 @@ func ConfigureImageRegistryStorage(oc *exutil.CLI) {
 	return
 }
 
-func EnableRegistryPublicRoute(oc *exutil.CLI) {
+func EnableRegistryPublicRoute(oc *exutil.CLI) (bool, error) {
+	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+
 	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"defaultRoute":true}}`, "--type=merge").Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
 	if err != nil {
 		e2e.Logf("Default route for Image Registry is failed to be enabled")
 	}
+	return true, nil
 }
 
-/*func ConfigureImageRegistryStorage() {
-	return
-}*/
+func ConfigureImageRegistryToReadOnlyMode(oc *exutil.CLI) (bool, error) {
+	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+
+	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"readOnly":true}}`, "--type=merge").Execute()
+	o.Expect(err).NotTo(o.HaveOccurred())
+	if err != nil {
+		e2e.Logf("Image Registry is in readly only mode")
+	}
+	return true, nil
+}
+
+func RedeployImageRegistry(oc *exutil.CLI) (bool, error) {
+	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
+
+	oc = oc.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin()
+	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"managementState":"Removed"}}`, "--type=merge").Execute()
+	if err != nil {
+		return false, fmt.Errorf("failed to remove registry: %v", err)
+	}
+	err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"managementState":"Managed"}}`, "--type=merge").Execute()
+	if err != nil {
+		return false, fmt.Errorf("failed to start registry: %v", err)
+	}
+	EnsureRegistryOperatorStatusIsAvailable(oc)
+	return true, nil
+}
