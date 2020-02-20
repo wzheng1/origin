@@ -56,7 +56,9 @@ var _ = g.Describe("[Feature:ImagePrune][registry][Serial][Suite:openshift/regis
 
 		})
 
-		g.It("should prune old image with config", func() { testPruneImages(oc, 2) })
+		//g.It("should prune old image with config", func() { EnableRegistryPublicRoute(oc) })
+		g.It("should prune old image with config", func() { ConfigureImageRegistryToReadOnlyMode(oc) })
+		//g.It("should prune old image with config", func() { EnsureRegistryOperatorStatusIsAvailable(oc) })
 	})
 
 	g.Describe("of schema 1", func() {

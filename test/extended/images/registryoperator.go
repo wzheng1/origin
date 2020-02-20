@@ -1,8 +1,6 @@
 package images
 
 import (
-	"fmt"
-
 	g "github.com/onsi/ginkgo"
 	o "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +36,6 @@ func EnsureRegistryOperatorStatusIsAvailable(oc *exutil.CLI) {
 	if availablestatus == "True" && progressingstatus == "False" && degradestatus == "False" {
 		g.By("Image registry operator is available")
 	}
-
 }
 
 func RegistryConfigClient(oc *exutil.CLI) clientimageregistryv1.ImageregistryV1Interface {
@@ -53,8 +50,8 @@ func ConfigureImageRegistryStorage(oc *exutil.CLI) {
 		ImageRegistryResourceName,
 		metav1.GetOptions{},
 	)
-	e2e.Logf("config is :\n%s", config)
 	o.Expect(err).NotTo(o.HaveOccurred())
+	e2e.Logf("config is :\n%s", config)
 	var hasstorage string
 	if config.Status.Storage.EmptyDir != nil {
 		e2e.Logf("Image Registry is already using EmptyDir")
@@ -75,47 +72,39 @@ func ConfigureImageRegistryStorage(oc *exutil.CLI) {
 		}
 		err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"storage":{"`+hasstorage+`":null,"emptyDir":{}}}}`, "--type=merge").Execute()
 		o.Expect(err).NotTo(o.HaveOccurred())
-		if err != nil {
-			e2e.Logf("Image Registry is not using EmptyDir")
-		}
+		e2e.Logf("Image Registry is using EmptyDir now")
 	}
 	return
 }
 
-func EnableRegistryPublicRoute(oc *exutil.CLI) (bool, error) {
+func EnableRegistryPublicRoute(oc *exutil.CLI) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 
 	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"defaultRoute":true}}`, "--type=merge").Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
-	if err != nil {
-		e2e.Logf("Default route for Image Registry is failed to be enabled")
-	}
-	return true, nil
+	e2e.Logf("Default route for Image Registry is enabled")
+
 }
 
-func ConfigureImageRegistryToReadOnlyMode(oc *exutil.CLI) (bool, error) {
+func ConfigureImageRegistryToReadOnlyMode(oc *exutil.CLI) {
 	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
 
 	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"readOnly":true}}`, "--type=merge").Execute()
 	o.Expect(err).NotTo(o.HaveOccurred())
-	if err != nil {
-		e2e.Logf("Image Registry is in readly only mode")
+	deploy, err := oc.AdminKubeClient().AppsV1().Deployments(RegistryOperatorDeploymentNamespace).Get(ImageRegistryName, metav1.GetOptions{})
+	found := false
+	for _, env := range deploy.Spec.Template.Spec.Containers[0].Env {
+		if env.Name == "REGISTRY_STORAGE_MAINTENANCE_READONLY" {
+			if expected := "{enabled: true}"; env.Value != expected {
+				e2e.Logf("%s: got %q, want %q", env.Name, env.Value, expected)
+			} else {
+				found = true
+			}
+		}
 	}
-	return true, nil
-}
+	if !found {
+		e2e.Logf("environment variable REGISTRY_STORAGE_MAINTENANCE_READONLY_ENABLED=true is not found")
+	}
+	//e2e.Logf("Image Registry is set to readyonly mode")
 
-func RedeployImageRegistry(oc *exutil.CLI) (bool, error) {
-	defer func(ns string) { oc.SetNamespace(ns) }(oc.Namespace())
-
-	oc = oc.SetNamespace(RegistryOperatorDeploymentNamespace).AsAdmin()
-	err := oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"managementState":"Removed"}}`, "--type=merge").Execute()
-	if err != nil {
-		return false, fmt.Errorf("failed to remove registry: %v", err)
-	}
-	err = oc.AsAdmin().WithoutNamespace().Run("patch").Args("configs.imageregistry.operator.openshift.io", ImageRegistryResourceName, "-p", `{"spec":{"managementState":"Managed"}}`, "--type=merge").Execute()
-	if err != nil {
-		return false, fmt.Errorf("failed to start registry: %v", err)
-	}
-	EnsureRegistryOperatorStatusIsAvailable(oc)
-	return true, nil
 }
